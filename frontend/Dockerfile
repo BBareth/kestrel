@@ -11,7 +11,7 @@ RUN npm run build
 # The official caddy image (v2.11.4) is built with Go 1.26.3 and older x/net, x/crypto,
 # x/text and grpc modules that have known HIGH CVEs. Rebuild the same Caddy release
 # with current Go and bumped modules instead of waiting for an upstream image.
-FROM golang:1.26-alpine AS caddy
+FROM golang:1.27-alpine AS caddy
 ARG CADDY_VERSION=v2.11.4
 RUN apk add --no-cache git
 WORKDIR /src
