@@ -1,0 +1,96 @@
+name: Publish images
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # linux/amd64 only: the homelab is amd64, and arm64 runners are billed for private repositories.
+  # Images land in GHCR as private packages next to the repository.
+  publish:
+    name: Publish ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: backend
+            context: ./backend
+            file: ./backend/Dockerfile
+            target: runtime
+            description: Kestrel trading engine and API
+          - image: web
+            context: .
+            file: ./frontend/Dockerfile
+            target: ""
+            description: Kestrel PWA behind Caddy
+    steps:
+      # Full history: the newest-tag check below needs every tag.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Is this the newest release tag?
+        id: newest
+        run: |
+          # Re-running an older tag's publish must not drag `latest` backwards onto a superseded
+          # release (it happened to herald twice). Only the highest semver tag may move `latest`.
+          newest=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n1)
+          echo "this run: ${GITHUB_REF_NAME} (${GITHUB_REF_TYPE}), newest tag: ${newest}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" = "${newest}" ]; then
+            echo "is_newest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_newest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Derive lowercase image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ steps.newest.outputs.is_newest == 'true' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.description=${{ matrix.description }}
+          cache-from: type=gha,scope=publish-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=publish-${{ matrix.image }}
+
+      - name: Inspect published image
+        run: docker buildx imagetools inspect "${{ steps.image.outputs.name }}:sha-${GITHUB_SHA::7}"

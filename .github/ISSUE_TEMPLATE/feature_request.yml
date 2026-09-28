@@ -1,0 +1,36 @@
+name: Feature request
+description: A change to what Kestrel does.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is missing or awkward today? Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Does it touch a safety rule?
+      description: Risk limits, protective orders, halts, the kill switch, the live unlock, authentication.
+      options:
+        - "No"
+        - "Yes — it adds or tightens one"
+        - "Yes — it loosens or removes one (explain why below)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is safe
+      description: For anything that loosens a rule, and for strategy changes — how it was verified out of sample (not only on the backtest it was tuned on).

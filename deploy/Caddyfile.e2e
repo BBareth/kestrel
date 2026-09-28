@@ -1,0 +1,24 @@
+# E2E test variant: plain HTTP on localhost only (reached through an SSH tunnel).
+# http://localhost is a secure context, so the service worker still registers.
+{
+	admin off
+	auto_https off
+}
+http:// {
+	header -Server
+	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
+	encode gzip
+	handle /api/* {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+	handle /healthz {
+		respond "ok" 200
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

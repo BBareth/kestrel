@@ -1,0 +1,64 @@
+name: Bug report
+description: Something behaves differently than documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste API keys, secrets, `.env` contents or account balances.** Redact them.
+
+        Two things that look like bugs but are not:
+
+        - **NO TRADE** most of the time is expected; the dashboard shows the failing check.
+        - A **halt** is a fail-safe doing its job; System → events names the cause.
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Trading mode when it happened
+      options:
+        - PAPER
+        - LIVE (testnet)
+        - LIVE (mainnet)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Strategy / signals
+        - Risk engine
+        - Execution / orders / protection
+        - Position monitor / reconciliation
+        - Paper exchange
+        - AI layer
+        - Notifications / PWA
+        - Web UI
+        - Auth / security
+        - Backtesting / performance
+        - Deployment / backups
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Trade id and its audit trail, System → events, or `docker compose logs --since 30m engine` (redacted).
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in the sidebar (e.g. v1.0.0) or `docker compose exec api python -c "import app; print(app.__version__)"`.

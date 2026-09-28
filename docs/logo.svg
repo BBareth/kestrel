@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Kestrel">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161f2d"/>
+      <stop offset="1" stop-color="#0a0d11"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="url(#bg)"/>
+  <!-- neutral spine, green arm up (long), red arm down (short) -->
+  <rect x="30.5" y="27" width="10" height="46" rx="2" fill="#e6eaf0"/>
+  <polygon points="40.5,53 40.5,43 60.8,27 72.3,27" fill="#1fc27e"/>
+  <polygon points="45.5,49 53.2,43.9 72.3,73 60.8,73" fill="#f0465a"/>
+</svg>

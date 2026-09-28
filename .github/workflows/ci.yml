@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same branch/PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (tests on PostgreSQL, migrations)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: kestrel
+          POSTGRES_PASSWORD: kestrel
+          POSTGRES_DB: kestrel
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kestrel"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql+asyncpg://kestrel:kestrel@localhost:5432/kestrel
+      TEST_DATABASE_URL: postgresql+asyncpg://kestrel:kestrel@localhost:5432/kestrel
+      AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-else
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # A model change without a migration would only surface at deploy time; catch it here.
+      - name: Migrations apply and match the models
+        run: |
+          alembic upgrade head
+          alembic check
+
+      # Production runs on PostgreSQL, so the suite does too (locally it defaults to SQLite).
+      - name: Tests
+        run: pytest -q
+
+  security:
+    name: Security (bandit, pip-audit, npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Static analysis (bandit)
+        run: |
+          pip install bandit pip-audit
+          bandit -q -r backend/app
+
+      - name: Python dependencies (pip-audit)
+        run: pip-audit -r backend/requirements.txt
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: JavaScript dependencies (npm audit)
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --audit-level=high
+
+  frontend:
+    name: Frontend (typecheck, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      # The service worker is useless without its precache list; the build plugin must inject it.
+      - name: Service worker has a precache manifest
+        working-directory: frontend
+        run: |
+          grep -q 'const PRECACHE = \[' dist/sw.js
+          ! grep -q '__BUILD_HASH__' dist/sw.js
+
+  docker:
+    name: Docker images (build + smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          target: runtime
+          load: true
+          tags: kestrel-backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # Includes compiling Caddy with a patched Go toolchain (see frontend/Dockerfile).
+      - name: Build web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./frontend/Dockerfile
+          load: true
+          tags: kestrel-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # Health, SPA routing, PWA assets, security headers, CA download, unauthenticated requests
+      # rejected, login, CSRF and Origin enforcement, PAPER default, live unlock refused, backup job.
+      - name: Smoke test
+        run: bash scripts/smoke-test.sh

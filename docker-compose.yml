@@ -1,0 +1,141 @@
+# Kestrel — self-hosted BTCUSDT perpetual trading assistant
+#   docker compose up -d            start (PAPER trading by default)
+#   docker compose ps               status / health
+#   docker compose logs -f engine   follow the trading engine
+name: kestrel
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-app: &app
+  image: kestrel-backend:${KESTREL_VERSION:-latest}
+  build: { context: ./backend, target: runtime }
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+asyncpg://kestrel:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/kestrel
+    TZ: UTC
+  restart: unless-stopped
+  read_only: true
+  tmpfs: ["/tmp:size=64m"]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging: *logging
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: kestrel
+      POSTGRES_USER: kestrel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TZ: UTC
+    volumes: ["db-data:/var/lib/postgresql/data"]
+    networks: [internal]
+    restart: unless-stopped
+    shm_size: 128m
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kestrel -d kestrel"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *logging
+
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    networks: [internal]
+    depends_on: { db: { condition: service_healthy } }
+
+  api:
+    <<: *app
+    networks: [internal, edge]
+    mem_limit: 768m
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
+
+  engine:
+    <<: *app
+    command: ["python", "-m", "app.engine.main"]
+    networks: [internal, edge]
+    mem_limit: 768m
+    stop_grace_period: 30s
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,time; p='/tmp/kestrel-engine.heartbeat'; sys.exit(0 if os.path.exists(p) and time.time()-os.path.getmtime(p) < 60 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+  web:
+    image: kestrel-web:${KESTREL_VERSION:-latest}
+    build: { context: ., dockerfile: frontend/Dockerfile }
+    environment:
+      KESTREL_HOST: ${KESTREL_HOST:-localhost}
+      KESTREL_HTTPS_PORT: ${KESTREL_HTTPS_PORT:-8443}
+    ports:
+      - "${KESTREL_BIND:-0.0.0.0}:${KESTREL_HTTPS_PORT:-8443}:443"
+      - "${KESTREL_BIND:-0.0.0.0}:${KESTREL_HTTP_PORT:-8089}:80"
+    volumes: ["caddy-data:/data", "caddy-config:/config"]
+    networks: [edge]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=16m"]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    depends_on: { api: { condition: service_started } }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+
+  backup:
+    image: postgres:17-alpine
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: kestrel
+      PGDATABASE: kestrel
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-3}
+      TZ: UTC
+    volumes:
+      - "./backups:/backups"
+      - "./deploy/backup.sh:/backup.sh:ro"
+    networks: [internal]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    logging: *logging
+
+networks:
+  internal:
+    internal: true   # database network: no route to the internet
+  edge: {}
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

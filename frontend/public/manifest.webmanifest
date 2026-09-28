@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Kestrel — BTC Perp Desk",
+  "short_name": "Kestrel",
+  "description": "Self-hosted BTCUSDT perpetual trading assistant (paper-first, risk-managed).",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0d11",
+  "theme_color": "#0a0d11",
+  "categories": ["finance"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

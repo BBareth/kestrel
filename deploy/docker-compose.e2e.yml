@@ -1,0 +1,11 @@
+# Isolated end-to-end test stack (own DB/volumes, localhost-only ports):
+#   docker compose -p kestrel-e2e -f docker-compose.yml -f deploy/docker-compose.e2e.yml --env-file .env.e2e up -d
+services:
+  api: { env_file: !override [".env.e2e"] }
+  engine: { env_file: !override [".env.e2e"] }
+  migrate: { env_file: !override [".env.e2e"] }
+  web:
+    ports: !override ["127.0.0.1:18080:80"]
+    volumes: !override ["./deploy/Caddyfile.e2e:/etc/caddy/Caddyfile:ro", "caddy-data:/data", "caddy-config:/config"]
+  backup:
+    volumes: !override ["./backups-e2e:/backups", "./deploy/backup.sh:/backup.sh:ro"]
