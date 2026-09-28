@@ -42,13 +42,15 @@ market data → technical analysis → strategy → risk engine → AI confirmat
 - **One-tap kill switch** in every screen, from the shell, and — if the engine is down — executed
   by the API itself.
 - **iPhone app.** Installable PWA with Web Push for trades, stops, targets, risk and system events.
-- **Explains itself.** Every evaluation shows its checklist; every trade has an audit trail from
-  signal to P&L; every AI call is stored with its tokens and cost.
+- **Explains itself.** The dashboard says in plain words what Kestrel is waiting for — six steps each
+  for a long and a short, which ones are met and what is still missing — and an *Explain everything*
+  switch labels every number. Every trade has an audit trail from signal to P&L; every AI call is
+  stored with its tokens and cost.
 
 <p align="center">
-  <img src="./docs/screenshot-dashboard.png" alt="Dashboard: BTCUSDT price, market state with trend per timeframe, the latest signal (NO TRADE with its reason), position, account and a candlestick chart with EMA 7/25/99 and support/resistance levels." width="860">
+  <img src="./docs/screenshot-dashboard.png" alt="Dashboard: BTCUSDT price; an In plain words panel with the six steps for a long and a short, which are met and what is missing; market state with explanations; the latest signal; position; account; and a candlestick chart with EMA 7/25/99 and support/resistance levels." width="860">
   <br>
-  <em>Dashboard — NO TRADE is the most common answer, and it says why.</em>
+  <em>Dashboard — NO TRADE is the most common answer, and it says why, in plain words.</em>
 </p>
 
 <p align="center">
@@ -207,4 +209,4 @@ checklist — [docs/LIVE_TRADING.md](docs/LIVE_TRADING.md).
 
 ## License
 
-[MIT](./LICENSE). The repository is private.
+[MIT](./LICENSE).

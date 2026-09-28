@@ -1,6 +1,6 @@
 # Contributing
 
-Kestrel is a private project. This file is the working agreement for changing it.
+Kestrel is a personal project, published as-is. This file is the working agreement for changing it.
 
 ## Before a large change
 
@@ -75,7 +75,7 @@ Match what is there. A few things are deliberate:
 2. Bump `backend/app/__init__.py` and `frontend/package.json`, add a `CHANGELOG.md` entry.
 3. Tag and push: `git tag -a vX.Y.Z -m "Kestrel X.Y.Z" && git push origin vX.Y.Z`.
 4. **Publish images** pushes `ghcr.io/bbareth/kestrel-backend` and `ghcr.io/bbareth/kestrel-web`
-   (private, linux/amd64). `latest` only moves when the tag is the newest semver in the repository.
+   (linux/amd64). `latest` only moves when the tag is the newest semver in the repository.
 5. Deploy to the homelab with `scripts/deploy.sh` (builds on the host; the GHCR images are for
    rollback and reference).
 

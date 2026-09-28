@@ -35,5 +35,7 @@ scrubs them and common credential patterns from every log line).
 
 ## Reporting a problem
 
-This is a private repository. Open a private issue marked **security**, or contact the owner
-directly — do not paste API keys, logs with account data or `.env` contents into issues.
+Please report vulnerabilities privately through GitHub:
+[Report a vulnerability](https://github.com/BBareth/kestrel/security/advisories/new) (Security tab →
+*Report a vulnerability*). Do not open a public issue for a security problem, and never paste API
+keys, logs with account data or `.env` contents anywhere.

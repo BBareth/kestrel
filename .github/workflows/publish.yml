@@ -14,8 +14,8 @@ permissions:
   packages: write
 
 jobs:
-  # linux/amd64 only: the homelab is amd64, and arm64 runners are billed for private repositories.
-  # Images land in GHCR as private packages next to the repository.
+  # linux/amd64 only: the homelab it runs on is amd64.
+  # Images land in GHCR next to the repository.
   publish:
     name: Publish ${{ matrix.image }}
     runs-on: ubuntu-latest

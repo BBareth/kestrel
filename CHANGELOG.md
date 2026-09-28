@@ -3,6 +3,19 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0] — 2026-09-28
+
+### Added
+- **In plain words** panel at the top of the dashboard: a one-sentence summary of what Kestrel is
+  doing (waiting, which side is closer to a setup, a setup found, or an open trade with its exits),
+  and side-by-side *Go LONG* / *Go SHORT* ladders with the six steps each setup needs, which are
+  met, and what is missing — translated from the strategy's own checklist, no rules of its own.
+- *Explain everything* switch (on by default, remembered per browser): one-line explanations under
+  every market figure, the signal, the account and a key for the chart.
+
+### Changed
+- The repository is public. Security reports go through GitHub private vulnerability reporting.
+
 ## [1.0.0] — 2026-09-28
 
 First release. Paper trading by default; live trading behind a checklist-gated unlock.
@@ -43,4 +56,5 @@ First release. Paper trading by default; live trading behind a checklist-gated u
 - 149 automated tests (SQLite and PostgreSQL), including failure injection for the
   "something goes wrong while a live position is open" cases.
 
+[1.1.0]: https://github.com/BBareth/kestrel/releases/tag/v1.1.0
 [1.0.0]: https://github.com/BBareth/kestrel/releases/tag/v1.0.0

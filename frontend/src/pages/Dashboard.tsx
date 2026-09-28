@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { Badge, Card, Checklist, KV, Meter, Stat, Tabs } from "../components/ui";
+import { Badge, Card, Checklist, KV, Meter, Stat, Tabs, Toggle } from "../components/ui";
+import { SetupGuide, Term, useExplain } from "../components/Guide";
 import { PriceChart, type Candle, type MarkerSpec, type PriceLineSpec } from "../components/charts";
 import { compact, fundingPct, num, pct, pnlClass, price, signed, titleCase, usd, ago } from "../format";
 import { useApi } from "../hooks";
@@ -74,7 +75,7 @@ export function SignalPanel({ compactView = false }: { compactView?: boolean }) 
   );
 }
 
-export function MarketChart({ height = 380, trade }: { height?: number; trade?: Trade | null }) {
+export function MarketChart({ height = 380, trade, explain = false }: { height?: number; trade?: Trade | null; explain?: boolean }) {
   const [interval, setInterval] = useState<"1m" | "5m" | "15m" | "1h" | "4h">("5m");
   const { data } = useApi<{ candles: Candle[] }>(`/api/market/candles?interval=${interval}&limit=400`, 30000);
   const { ticker, evaluation } = useLive();
@@ -115,12 +116,22 @@ export function MarketChart({ height = 380, trade }: { height?: number; trade?: 
         <div className="legend small"><i style={{ background: "#f2b33d" }} />EMA7 <i style={{ background: "#4c8dff" }} />EMA25 <i style={{ background: "#b07bff" }} />EMA99</div>
       </div>
       <PriceChart candles={data?.candles || []} live={live} lines={lines} markers={markers} height={height} />
+      {explain && (
+        <p className="chart-help small muted">
+          Each bar is one candle: <span className="up">green</span> = price rose in that period, <span className="down">red</span> = it fell.
+          The coloured lines are averages — yellow (EMA 7) reacts fast, blue (EMA 25) medium, purple (EMA 99) slow; yellow above blue
+          means short-term momentum is up. Dashed <span className="down">R</span> lines are resistance (a price ceiling), dashed{" "}
+          <span className="up">S</span> lines support (a floor); ×3 means price turned there three times. Arrows mark Kestrel's
+          entries, grey dots its exits.
+        </p>
+      )}
     </div>
   );
 }
 
 export default function Dashboard() {
   const { ticker, evaluation, accounts, trading } = useLive();
+  const [explain, setExplain] = useExplain();
   const { data } = useApi<Dash>("/api/dashboard", 5000);
   const mode = trading?.mode || "paper";
   const acct = { ...(data?.account || {}), ...(accounts?.[mode] || {}) };
@@ -147,21 +158,32 @@ export default function Dashboard() {
         </div>
       </Card>
 
+      <Card title="In plain words" className="guide-card" right={<Toggle checked={explain} onChange={setExplain} label="Explain everything" />}>
+        <SetupGuide ev={evaluation ?? null} trading={trading ?? null} pos={pos} trade={tr} />
+      </Card>
+
       <Card title="Market" className="market">
         <KV rows={[
-          ["Trend", <TrendChips tfs={tf} />],
-          ["Regime", titleCase(evaluation?.regime) || "—"],
-          ["Volatility (5m ATR)", tf?.["5m"] ? `${num(tf["5m"].atr, 1)} · ${num(tf["5m"].atr_pct, 3)}%` : "—"],
-          ["RSI 5m / 1h", tf?.["5m"] ? `${num(tf["5m"].rsi, 1)} / ${num(tf["1h"]?.rsi, 1)}` : "—"],
-          ["Funding", fundingPct(ticker?.funding_rate), (ticker?.funding_rate ?? 0) > 0 ? "" : ""],
-          ["Volume 24h", `${compact(ticker?.volume_24h)} BTC · $${compact(ticker?.quote_volume_24h)}`],
-          ["Open interest", `${compact(ticker?.open_interest)} BTC (${pct(ticker?.oi_change_1h_pct)} 1h)`],
-          ["Liquidations 1h", ticker?.liquidations_1h ? `L $${compact(ticker.liquidations_1h.long_liquidations_usdt)} · S $${compact(ticker.liquidations_1h.short_liquidations_usdt)}` : "—"],
+          [<Term show={explain} label="Trend" hint="Direction per chart timeframe. ▲ up, ▼ down, ▬ sideways. 1h/4h decide which side Kestrel may trade." />, <TrendChips tfs={tf} />],
+          [<Term show={explain} label="Regime" hint="One-word summary of how the market behaves right now." />, titleCase(evaluation?.regime) || "—"],
+          [<Term show={explain} label="Volatility (5m ATR)" hint="How far price typically moves in one 5-minute candle. Stops are measured in this unit." />, tf?.["5m"] ? `${num(tf["5m"].atr, 1)} · ${num(tf["5m"].atr_pct, 3)}%` : "—"],
+          [<Term show={explain} label="RSI 5m / 1h" hint="Momentum, 0–100. Above 50 buyers are stronger, below 50 sellers; above 70 / below 30 is stretched." />, tf?.["5m"] ? `${num(tf["5m"].rsi, 1)} / ${num(tf["1h"]?.rsi, 1)}` : "—"],
+          [<Term show={explain} label="Funding" hint="Fee between longs and shorts every 8 h. Strongly positive = many are already long (crowded)." />, fundingPct(ticker?.funding_rate)],
+          [<Term show={explain} label="Volume 24h" hint="How much BTC changed hands in the last 24 hours." />, `${compact(ticker?.volume_24h)} BTC · $${compact(ticker?.quote_volume_24h)}`],
+          [<Term show={explain} label="Open interest" hint="Contracts currently open. Rising = new money entering the move." />, `${compact(ticker?.open_interest)} BTC (${pct(ticker?.oi_change_1h_pct)} 1h)`],
+          [<Term show={explain} label="Liquidations 1h" hint="Positions force-closed in the last hour: L = longs wiped out, S = shorts." />, ticker?.liquidations_1h ? `L $${compact(ticker.liquidations_1h.long_liquidations_usdt)} · S $${compact(ticker.liquidations_1h.short_liquidations_usdt)}` : "—"],
         ]} />
       </Card>
 
       <Card title="Signal" className="signal-card" right={<Link to="/signals" className="small">All signals →</Link>}>
         <SignalPanel />
+        {explain && (
+          <p className="small muted card-help">
+            The strategy's verdict on the last closed 5-minute candle. When it says LONG or SHORT: <b>Entry</b> is where it gets in,{" "}
+            <b>Stop</b> where it takes the loss if wrong, <b>TP1/TP2</b> the profit targets (half closes at TP1).{" "}
+            <b>Risk/Reward</b> 2.0 = aims to win twice what it risks. <b>Confidence</b> is a checklist score, not a win probability.
+          </p>
+        )}
       </Card>
 
       <Card title="Current position" className="pos" right={<Badge tone={mode === "live" ? "red" : "green"}>{mode.toUpperCase()}</Badge>}>
@@ -178,7 +200,7 @@ export default function Dashboard() {
             ["Liquidation", price(pos.liquidation_price)],
           ]} />
         ) : (
-          <div className="empty small">Flat — no open position.{data?.last_trade && <> Last trade #{data.last_trade.id}: <span className={pnlClass(data.last_trade.realized_pnl)}>{signed(data.last_trade.realized_pnl, 2, " USDT")}</span></>}</div>
+          <div className="empty small">Flat — no open position{explain ? " — Kestrel is not in a trade right now" : ""}.{data?.last_trade && <> Last trade #{data.last_trade.id}: <span className={pnlClass(data.last_trade.realized_pnl)}>{signed(data.last_trade.realized_pnl, 2, " USDT")}</span></>}</div>
         )}
       </Card>
 
@@ -191,10 +213,16 @@ export default function Dashboard() {
           <Stat label="Win rate" value={acct.win_rate != null ? `${acct.win_rate}%` : "—"} sub={`${acct.closed_trades ?? 0} closed`} />
           <Stat label="Unrealized" value={signed(acct.unrealized, 2)} cls={pnlClass(acct.unrealized)} />
         </div>
+        {explain && (
+          <p className="small muted card-help">
+            <b>Equity</b> = balance plus the open trade's profit/loss. <b>Available margin</b> = money not tied up in a trade.{" "}
+            <b>Unrealized</b> = profit/loss of the open trade if it closed now. {mode === "paper" ? "In PAPER mode all of this is simulated money." : "This is your real Binance futures account."}
+          </p>
+        )}
       </Card>
 
       <Card title="Chart" className="chart-card" pad={false}>
-        <MarketChart trade={tr} />
+        <MarketChart trade={tr} explain={explain} />
       </Card>
     </div>
   );

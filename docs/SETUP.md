@@ -54,9 +54,9 @@ authentication under **Security** (required for live trading).
 
 After editing `.env`: `docker compose up -d` (recreates affected containers).
 
-**Current deployment:** the OpenAI key was taken from the existing openGym configuration on CT100
-(`/opt/opengym/.env`, `COACH_API_KEY`) and copied server-side into `/opt/kestrel/.env` as
-`OPENAI_API_KEY` — it never left the host and was never displayed.
+If the host already has an OpenAI key for another service, copy it server-side into
+`/opt/kestrel/.env` as `OPENAI_API_KEY` (e.g. with `sed`/`grep` on the host) rather than pasting it
+through a chat or terminal session that records output.
 
 ## Operator CLI
 
